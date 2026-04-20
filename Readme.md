@@ -23,3 +23,8 @@ Sebelum dilakukan refactoring, terdapat duplikasi kode pada proses pembacaan fil
 Pada milestone ini, kita mensimulasikan respons lambat dengan menambahkan *route* `/sleep` yang akan melakukan `thread::sleep` selama 10 detik.
 
 Ketika rute `/sleep` diakses pada satu tab browser, lalu kita mencoba mengakses rute normal (`/`) di tab lain secara bersamaan, *request* kedua tersebut tidak akan langsung diproses. Hal ini terjadi karena server yang kita bangun saat ini masih beroperasi secara *single-threaded*. Artinya, server hanya dapat menangani satu *TCP stream* secara sekuensial. *Request* kedua harus mengantre hingga proses *blocking* selama 10 detik dari *request* pertama selesai dieksekusi. Hal ini menunjukkan dibutuhkannya penerapan *multithreading* agar server dapat merespons *request* secara *concurrent*.
+
+## Commit 5 Reflection notes
+Pada milestone ini, *single-threaded server* berhasil diubah menjadi *multithreaded server* menggunakan *Thread Pool*. Kita menggunakan `mpsc::channel()` sebagai antrean pekerjaan (*job queue*). *Main thread* bertindak sebagai *producer* (menggunakan `sender` untuk mendistribusikan *closure*), sementara setiap *worker* di dalam *pool* bertindak sebagai *consumer*.
+
+Karena sifat *mpsc* adalah *multiple producer, single consumer*, sisi *receiver* dari *channel* tidak bisa langsung dibagikan ke banyak *worker*. Oleh karena itu, *receiver* dibungkus dengan `Arc<Mutex<T>>`. `Mutex` memastikan perlindungan pada *Critical Section* sehingga hanya satu *worker* yang dapat mengambil dan mengeksekusi satu *request* pada satu waktu, sementara `Arc` (Atomic Reference Counting) memungkinkan referensi memori dari *receiver* tersebut dibagikan secara aman (*thread-safe*) ke seluruh *worker*.
